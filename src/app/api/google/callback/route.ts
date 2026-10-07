@@ -1,7 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { publicEnv } from "@/lib/env";
-import { getViewer } from "@/server/auth";
+import { getViewer, safeNextPath } from "@/server/auth";
 import { requireEnv } from "@/server/env";
 import { saveConnection } from "@/server/google/accounts";
 import {
@@ -23,8 +23,10 @@ function sameString(a: string, b: string): boolean {
   return ab.length === bb.length && timingSafeEqual(ab, bb);
 }
 
-function back(request: NextRequest, result: string) {
-  const response = NextResponse.redirect(new URL(`/settings?google=${result}`, request.url));
+function back(request: NextRequest, result: string, next = "/settings") {
+  const url = new URL(next, request.url);
+  url.searchParams.set("google", result);
+  const response = NextResponse.redirect(url);
   response.cookies.delete({ name: OAUTH_COOKIE, path: "/api/google" });
   return response;
 }
@@ -37,7 +39,7 @@ export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   if (params.get("error")) return back(request, "denied");
 
-  let saved: { state: string; codeVerifier: string; userId: string };
+  let saved: { state: string; codeVerifier: string; userId: string; next?: string };
   try {
     saved = JSON.parse(request.cookies.get(OAUTH_COOKIE)?.value ?? "");
   } catch {
@@ -84,7 +86,7 @@ export async function GET(request: NextRequest) {
     await syncUser(admin, viewer.id).catch(() => {
       // First sync failing isn't fatal; the next sync retries.
     });
-    return back(request, "connected");
+    return back(request, "connected", safeNextPath(saved.next, "/settings"));
   } catch (e) {
     console.error("[google] connect failed", e instanceof OAuthError ? e.code : (e as Error).name);
     return back(request, "failed");

@@ -84,6 +84,23 @@ export async function resetUserData(email = E2E_EMAIL) {
       `delete from public.calendars where user_id in (select id from auth.users where email = $1)`,
       [email],
     );
+    // Settings and the goal ladder back to their defaults (keeps onboarding state).
+    await client.query(
+      `update public.settings set timezone = 'Asia/Jerusalem', day_rollover = '04:00', week_start = 0,
+         wake_time = '10:00', shutdown_time = '22:30',
+         focus_windows = '[{"start":"11:00","end":"15:00"},{"start":"18:00","end":"22:00"}]',
+         focus_block_min = 45, break_min = 15, focus_capacity_min = 360, block_reminders = true, theme = 'system'
+       where user_id in (select id from auth.users where email = $1)`,
+      [email],
+    );
+    await client.query(
+      `with u as (select id from auth.users where email = $1)
+       update public.goals g set title = d.title, label = d.label
+       from (values (1, 'University grades', 'Grades'), (2, 'AI agency & voice AI', 'Agency'),
+                    (3, 'Health: gym, food, sleep', 'Health')) as d(rank, title, label)
+       where g.user_id in (select id from u) and g.rank = d.rank`,
+      [email],
+    );
   } finally {
     await client.end();
   }
@@ -100,7 +117,7 @@ export async function fakeGoogle(page: Page, body: Record<string, unknown>) {
 export async function connectGoogle(page: Page) {
   // Start from an empty fake Google account.
   await fakeGoogle(page, { op: "reset" });
-  await page.goto("/settings");
+  await goto(page, "/settings");
   await page.getByRole("link", { name: "Connect Google Calendar" }).click();
   await expect(page.getByText("Google Calendar connected.")).toBeVisible();
 }
@@ -121,4 +138,29 @@ export function logicalDate(addDays = 0, timeZone = "Asia/Jerusalem"): string {
 
 export function blockIdFromEventId(eventId: string): string {
   return `${eventId.slice(0, 8)}-${eventId.slice(8, 12)}-${eventId.slice(12, 16)}-${eventId.slice(16, 20)}-${eventId.slice(20)}`;
+}
+
+/** Marks first-run setup as done (or not) for the test user. */
+export async function setOnboarded(done: boolean, email = E2E_EMAIL) {
+  const { default: pg } = await import("pg");
+  const client = new pg.Client({
+    connectionString:
+      process.env.SUPABASE_DB_URL ?? "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
+  });
+  await client.connect();
+  try {
+    await client.query(
+      `update public.settings set onboarded_at = ${done ? "now()" : "null"}
+       where user_id in (select id from auth.users where email = $1)`,
+      [email],
+    );
+  } finally {
+    await client.end();
+  }
+}
+
+/** Full page load, then wait until React has hydrated (so inputs keep what tests type). */
+export async function goto(page: Page, url: string) {
+  await page.goto(url);
+  await page.waitForFunction(() => document.documentElement.dataset.hydrated === "1");
 }

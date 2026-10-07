@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { choose, quickAdd, resetUserData } from "./helpers";
+import { choose, quickAdd, resetUserData, goto } from "./helpers";
 
 test.beforeEach(async () => {
   await resetUserData();
@@ -19,7 +19,7 @@ async function add(page: Page, title: string, goal: string, time: string, when: 
 test("the week shows each day's load, flags overload and no-Grades days, and fixes a day", async ({
   page,
 }) => {
-  await page.goto("/tasks");
+  await goto(page, "/tasks");
   await add(page, "Thesis chapter", "Grades", "90m", "Today");
   await add(page, "Problem set", "Grades", "90m", "Today");
   await add(page, "Lab report", "Grades", "90m", "Today");
@@ -27,7 +27,7 @@ test("the week shows each day's load, flags overload and no-Grades days, and fix
   await add(page, "Client call prep", "Agency", "30m", "Today");
   await add(page, "Meal prep", "Health", "45m", "Tomorrow");
 
-  await page.goto("/week");
+  await goto(page, "/week");
   const todayRow = page.getByRole("link", { name: /\btoday\b/ });
   await expect(todayRow).toContainText("6h 30m");
   await expect(todayRow).toContainText("over by 30m");
@@ -49,7 +49,7 @@ test("the week shows each day's load, flags overload and no-Grades days, and fix
 });
 
 test("weeks can be paged", async ({ page }) => {
-  await page.goto("/week");
+  await goto(page, "/week");
   const title = await page.getByRole("heading", { level: 1 }).textContent();
   await page.getByRole("link", { name: "Next →" }).click();
   await expect(page.getByRole("heading", { level: 1 })).not.toHaveText(title!);

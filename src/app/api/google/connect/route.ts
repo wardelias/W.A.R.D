@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { publicEnv } from "@/lib/env";
-import { getViewer } from "@/server/auth";
+import { getViewer, safeNextPath } from "@/server/auth";
 import { requireEnv } from "@/server/env";
 import { isFakeCalendar, saveConnection } from "@/server/google/accounts";
 import { buildAuthUrl, OAUTH_COOKIE, randomToken, REQUIRED_SCOPES } from "@/server/google/oauth";
@@ -13,6 +13,8 @@ import { createClient } from "@/server/supabase/server";
 export async function GET(request: NextRequest) {
   const viewer = await getViewer();
   if (!viewer) return NextResponse.redirect(new URL("/login?next=/settings", request.url));
+
+  const next = safeNextPath(request.nextUrl.searchParams.get("next"), "/settings");
 
   if (isFakeCalendar()) {
     // Local/test mode: connect an in-memory calendar without leaving the app.
@@ -27,7 +29,7 @@ export async function GET(request: NextRequest) {
     const { data } = await db.from("settings").select("timezone").eq("user_id", viewer.id).single();
     await setupCalendars(admin, viewer.id, data?.timezone ?? "UTC");
     await syncUser(admin, viewer.id);
-    return NextResponse.redirect(new URL("/settings?google=connected", request.url));
+    return NextResponse.redirect(withResult(next, "connected", request.url));
   }
 
   const state = randomToken();
@@ -42,12 +44,22 @@ export async function GET(request: NextRequest) {
       loginHint: viewer.email,
     }),
   );
-  response.cookies.set(OAUTH_COOKIE, JSON.stringify({ state, codeVerifier, userId: viewer.id }), {
-    httpOnly: true,
-    secure: request.nextUrl.protocol === "https:",
-    sameSite: "lax",
-    path: "/api/google",
-    maxAge: 600,
-  });
+  response.cookies.set(
+    OAUTH_COOKIE,
+    JSON.stringify({ state, codeVerifier, userId: viewer.id, next }),
+    {
+      httpOnly: true,
+      secure: request.nextUrl.protocol === "https:",
+      sameSite: "lax",
+      path: "/api/google",
+      maxAge: 600,
+    },
+  );
   return response;
+}
+
+function withResult(path: string, result: string, base: string): URL {
+  const url = new URL(path, base);
+  url.searchParams.set("google", result);
+  return url;
 }

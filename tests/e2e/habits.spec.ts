@@ -1,11 +1,11 @@
 import { expect, test } from "@playwright/test";
-import { choose } from "./helpers";
+import { choose, goto } from "./helpers";
 
 test("create a habit, log it full or minimum with one tap, see honest stats, archive it", async ({
   page,
 }) => {
   const name = `קריאה ${Date.now().toString(36)}`;
-  await page.goto("/habits");
+  await goto(page, "/habits");
   await page.getByRole("link", { name: "+ New" }).click();
 
   await page.getByLabel("Name").fill(name);
@@ -21,7 +21,7 @@ test("create a habit, log it full or minimum with one tap, see honest stats, arc
   await expect(page.getByText("0 full · 0 minimum · 0 missed")).toBeVisible();
 
   // One tap: Done, then undo, then minimum
-  await page.goto("/habits");
+  await goto(page, "/habits");
   const row = page.getByRole("listitem").filter({ hasText: name }).first();
   await row.getByRole("button", { name: `Done: ${name}` }).click();
   await expect(row).toContainText("full");
@@ -50,12 +50,12 @@ test("create a habit, log it full or minimum with one tap, see honest stats, arc
   await page.getByRole("button", { name: "Archive" }).click();
   await expect(page).toHaveURL(/\/habits$/);
   await expect(page.getByRole("listitem").filter({ hasText: name })).toHaveCount(0);
-  await page.goto("/habits?view=archived");
+  await goto(page, "/habits?view=archived");
   await expect(page.getByRole("listitem").filter({ hasText: name })).toBeVisible();
 });
 
 test("a days habit needs at least one day", async ({ page }) => {
-  await page.goto("/habits/new");
+  await goto(page, "/habits/new");
   await page.getByLabel("Name").fill("Gym");
   await page.getByLabel("Minimum version").fill("10 push-ups");
   await choose(page, "Days");

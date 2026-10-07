@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { addDays, localTime } from "@/domain/day";
 import { isolate } from "@/domain/text";
@@ -66,6 +67,7 @@ function nowLine(agenda: AgendaItem[], now: Date, timeZone: string): string | nu
 
 async function Today() {
   const ctx = await getContext();
+  if (!ctx.settings.onboarded_at) redirect("/welcome");
   const { today } = ctx;
   const [goals, plan, dayTasks, earlier, check, habits, review, agenda, calendar] =
     await Promise.all([

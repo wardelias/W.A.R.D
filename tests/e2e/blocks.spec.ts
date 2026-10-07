@@ -7,6 +7,7 @@ import {
   logicalDate,
   quickAdd,
   resetUserData,
+  goto,
 } from "./helpers";
 
 test.beforeEach(async () => {
@@ -19,7 +20,7 @@ test("schedule focus blocks, see them in Google, apply a move made in Google, de
   page,
 }) => {
   await connectGoogle(page);
-  await page.goto("/today");
+  await goto(page, "/today");
   const input = page.getByLabel("Add a task");
   await input.fill("Algorithms HW");
   await choose(quickAdd(page), "Grades");
@@ -34,7 +35,7 @@ test("schedule focus blocks, see them in Google, apply a move made in Google, de
   const url = new URL(page.url());
   url.searchParams.set("day", logicalDate(1));
   url.searchParams.set("count", "2");
-  await page.goto(url.toString());
+  await goto(page, url.toString());
   await expect(page.getByText("Adds to Google Calendar “W.A.R.D.”")).toBeVisible();
   const previews = page
     .locator("section")
@@ -66,12 +67,12 @@ test("schedule focus blocks, see them in Google, apply a move made in Google, de
     start: moved.toISOString(),
     end: new Date(moved.getTime() + 45 * 60_000).toISOString(),
   });
-  await page.goto("/settings");
+  await goto(page, "/settings");
   await page.getByRole("button", { name: "Sync now" }).click();
   await expect(page.getByText("Synced.")).toBeVisible();
 
   const blockId = blockIdFromEventId(first.id);
-  await page.goto(`/blocks/${blockId}`);
+  await goto(page, `/blocks/${blockId}`);
   await expect(page.getByText(/18:00–18:45 · W\.A\.R\.D\./)).toBeVisible();
 
   // Delete it from W.A.R.D. after seeing exactly what will be removed
@@ -88,11 +89,11 @@ test("schedule focus blocks, see them in Google, apply a move made in Google, de
 
 test("move a block from W.A.R.D. with a preview of the change", async ({ page }) => {
   await connectGoogle(page);
-  await page.goto(`/focus/new?day=${logicalDate(1)}&count=1`);
+  await goto(page, `/focus/new?day=${logicalDate(1)}&count=1`);
   await page.getByRole("button", { name: "Add 1 block" }).click();
   await expect(page).toHaveURL(/\/today$/);
   const { ward } = (await fakeGoogle(page, { op: "list" })) as { ward: FakeEvent[] };
-  await page.goto(`/blocks/${blockIdFromEventId(ward[0].id)}`);
+  await goto(page, `/blocks/${blockIdFromEventId(ward[0].id)}`);
   await page.getByLabel("Time", { exact: true }).fill("19:00");
   await expect(
     page.getByText(

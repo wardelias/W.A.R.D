@@ -1,5 +1,10 @@
 import { Suspense } from "react";
 import { GoogleSettings } from "@/components/calendar/google-settings";
+import { GoalsForm } from "@/components/settings/goals-form";
+import { ScheduleForm } from "@/components/settings/schedule-form";
+import { ThemeChooser } from "@/components/settings/theme-chooser";
+import { listGoals } from "@/server/services/goals";
+import { scheduleValues, timeZoneList } from "@/lib/settings-values";
 import { Button, Notice, Section } from "@/components/ui";
 import { ago } from "@/lib/relative-time";
 import { signOut } from "@/server/actions/auth";
@@ -31,12 +36,20 @@ export default function SettingsPage({ searchParams }: PageProps<"/settings">) {
 async function SettingsView({ searchParams }: Pick<PageProps<"/settings">, "searchParams">) {
   const { google } = await searchParams;
   const ctx = await getContext();
-  const status = await calendarStatus(ctx);
+  const [status, goals] = await Promise.all([calendarStatus(ctx), listGoals(ctx)]);
   const result = typeof google === "string" ? GOOGLE_RESULT[google] : undefined;
 
   return (
     <div>
       {result ? <Notice className="mt-4">{result}</Notice> : null}
+
+      <Section title="Schedule">
+        <ScheduleForm initial={scheduleValues(ctx.settings)} timeZones={timeZoneList()} />
+      </Section>
+
+      <Section title="Goal ladder">
+        <GoalsForm initial={goals.map((g) => ({ id: g.id, title: g.title, label: g.label }))} />
+      </Section>
 
       <Section title="Google Calendar">
         <GoogleSettings
@@ -46,6 +59,10 @@ async function SettingsView({ searchParams }: Pick<PageProps<"/settings">, "sear
           lastSync={ago(status.lastSyncedAt, ctx.now)}
           calendars={status.calendars}
         />
+      </Section>
+
+      <Section title="Appearance">
+        <ThemeChooser initial={ctx.settings.theme as "system" | "light" | "dark"} />
       </Section>
 
       <Section title="Account">

@@ -1,12 +1,12 @@
 import { expect, test } from "@playwright/test";
-import { choose, quickAdd } from "./helpers";
+import { choose, quickAdd, goto } from "./helpers";
 
 const HEBREW = "סיכום הרצאה 4 בלינארית";
 const ARABIC = "تحديث عرض الأسعار للعميل";
 
 test("add, complete, edit and drop tasks in Hebrew, Arabic and English", async ({ page }) => {
   const suffix = Date.now().toString(36);
-  await page.goto("/tasks");
+  await goto(page, "/tasks");
 
   // Quick add: type, pick goal/time/day, Enter
   const input = page.getByLabel("Add a task");
@@ -49,7 +49,7 @@ test("add, complete, edit and drop tasks in Hebrew, Arabic and English", async (
   await expect(page.getByRole("listitem").filter({ hasText: `${HEBREW} ${suffix}` })).toBeVisible();
 
   // Drop the Arabic task, then find it under Dropped
-  await page.goto("/tasks");
+  await goto(page, "/tasks");
   await page.getByRole("link", { name: new RegExp(`${ARABIC} ${suffix}`) }).click();
   await page.getByRole("button", { name: "Drop" }).click();
   await expect(page).toHaveURL(/\/tasks$/);
@@ -58,7 +58,7 @@ test("add, complete, edit and drop tasks in Hebrew, Arabic and English", async (
 });
 
 test("a task needs a title", async ({ page }) => {
-  await page.goto("/tasks");
+  await goto(page, "/tasks");
   await page.getByLabel("Add a task").fill("   ");
   await page.getByLabel("Add a task").press("Enter");
   await expect(page.getByRole("radio", { name: "Grades" })).toHaveCount(0);

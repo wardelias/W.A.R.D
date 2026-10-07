@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { HydrationMark } from "@/components/hydration-mark";
 import { ServiceWorkerRegister } from "@/components/service-worker";
 import { THEME_SCRIPT } from "@/lib/theme";
 import "./globals.css";
@@ -28,6 +29,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body>
         {children}
         <ServiceWorkerRegister />
+        <HydrationMark />
       </body>
     </html>
   );

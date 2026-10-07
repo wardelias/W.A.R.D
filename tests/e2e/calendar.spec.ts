@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { connectGoogle, E2E_EMAIL, fakeGoogle, resetUserData } from "./helpers";
+import { connectGoogle, E2E_EMAIL, fakeGoogle, resetUserData, goto } from "./helpers";
 
 test.beforeEach(async () => {
   await resetUserData();
@@ -8,7 +8,7 @@ test.beforeEach(async () => {
 test("connect Google Calendar, see outside events on Today, hide a calendar, disconnect", async ({
   page,
 }) => {
-  await page.goto("/today");
+  await goto(page, "/today");
   await expect(page.getByText("to see your day here.")).toBeVisible();
 
   await connectGoogle(page);
@@ -28,7 +28,7 @@ test("connect Google Calendar, see outside events on Today, hide a calendar, dis
   await page.getByRole("button", { name: "Sync now" }).click();
   await expect(page.getByText("Synced.")).toBeVisible();
 
-  await page.goto("/today");
+  await goto(page, "/today");
   const calendar = page
     .locator("section")
     .filter({ has: page.getByRole("heading", { name: "Calendar" }) });
@@ -37,15 +37,15 @@ test("connect Google Calendar, see outside events on Today, hide a calendar, dis
   await expect(calendar).toContainText(/synced (just now|\d+ min ago)/);
 
   // Hide the primary calendar: its events leave Today
-  await page.goto("/settings");
+  await goto(page, "/settings");
   await page.getByRole("checkbox", { name: "Primary" }).uncheck();
   await expect(page.getByRole("checkbox", { name: "Primary" })).not.toBeChecked();
   await page.waitForTimeout(500);
-  await page.goto("/today");
+  await goto(page, "/today");
   await expect(calendar).not.toContainText("Data Structures lecture");
 
   // Disconnect (and remove the W.A.R.D. calendar)
-  await page.goto("/settings");
+  await goto(page, "/settings");
   await page.getByRole("button", { name: "Disconnect…" }).click();
   await page.getByLabel("Also delete the “W.A.R.D.” calendar from Google").check();
   await page.getByRole("button", { name: "Disconnect", exact: true }).click();

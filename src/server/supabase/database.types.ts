@@ -593,6 +593,7 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      reorder_goals: { Args: { p_ids: string[] }; Returns: undefined };
       replace_calendar_window: {
         Args: {
           p_calendar: string;

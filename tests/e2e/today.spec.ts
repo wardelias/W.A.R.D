@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { choose, quickAdd, resetUserData } from "./helpers";
+import { choose, quickAdd, resetUserData, goto } from "./helpers";
 
 test.beforeEach(async () => {
   await resetUserData();
@@ -18,7 +18,7 @@ async function addTask(page: Page, title: string, goal: string, time: string, wh
 
 test("plan the day: one thing, top 3, overload warning with a one-tap fix", async ({ page }) => {
   const s = Date.now().toString(36);
-  await page.goto("/today");
+  await goto(page, "/today");
   await expect(page.getByText("Nothing planned for today yet.")).toBeVisible();
 
   await addTask(page, `Algorithms HW ${s}`, "Grades", "90m");

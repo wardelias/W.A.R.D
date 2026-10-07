@@ -33,6 +33,9 @@ export function GoogleSettings({
   const [message, setMessage] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [removeWard, setRemoveWard] = useState(false);
+  const [shown, setShown] = useState<Record<string, boolean>>(
+    Object.fromEntries(calendars.map((c) => [c.id, c.selected])),
+  );
 
   function act(fn: () => Promise<{ ok: boolean; error?: string }>, done?: string) {
     setMessage(null);
@@ -85,11 +88,12 @@ export function GoogleSettings({
                   <input
                     type="checkbox"
                     className="size-5"
-                    defaultChecked={c.selected}
+                    checked={shown[c.id] ?? c.selected}
                     disabled={pending}
                     onChange={(e) => {
-                      const shown = e.target.checked;
-                      act(() => setCalendarShownAction(c.id, shown));
+                      const next = e.target.checked;
+                      setShown({ ...shown, [c.id]: next });
+                      act(() => setCalendarShownAction(c.id, next));
                     }}
                   />
                   <bdi>{c.summary}</bdi>

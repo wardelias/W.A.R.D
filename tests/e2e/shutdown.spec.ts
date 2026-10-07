@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { choose, quickAdd, resetUserData } from "./helpers";
+import { choose, quickAdd, resetUserData, goto } from "./helpers";
 
 test.beforeEach(async () => {
   await resetUserData();
@@ -17,20 +17,20 @@ async function addToday(page: Page, title: string, goal: string, time: string) {
 }
 
 test("night check-in: log, move what slipped, set tomorrow's first task", async ({ page }) => {
-  await page.goto("/habits/new");
+  await goto(page, "/habits/new");
   await page.getByLabel("Name").fill("Walk 20 min");
   await page.getByLabel("Minimum version").fill("5 min");
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByRole("heading", { name: /Walk 20 min/ })).toBeVisible();
 
-  await page.goto("/today");
+  await goto(page, "/today");
   await addToday(page, "Algorithms HW", "Grades", "90m");
   await addToday(page, "סיכום הרצאה", "Grades", "45m");
   await addToday(page, "Old idea", "Agency", "30m");
   await page.getByRole("checkbox", { name: "Mark done: Algorithms HW" }).click();
   await expect(page.getByRole("checkbox", { name: "Mark not done: Algorithms HW" })).toBeVisible();
 
-  await page.goto("/shutdown");
+  await goto(page, "/shutdown");
   await expect(page.getByRole("heading", { name: /Shutdown/ })).toBeVisible();
 
   // Unfinished tasks default to tomorrow; drop one
@@ -54,26 +54,26 @@ test("night check-in: log, move what slipped, set tomorrow's first task", async 
   await expect(page.getByText(/Tomorrow starts with:/)).toContainText("סיכום הרצאה");
 
   // The moved task slipped once and is tomorrow's one thing; Today shows the day as closed
-  await page.goto("/tasks");
+  await goto(page, "/tasks");
   await expect(page.getByRole("listitem").filter({ hasText: "סיכום הרצאה" })).toContainText(
     "Tomorrow · slipped 1×",
   );
-  await page.goto("/today");
+  await goto(page, "/today");
   await expect(page.getByRole("link", { name: "Day closed · View" })).toBeVisible();
 
   // Editing the check-in keeps the note
-  await page.goto("/shutdown?edit=1");
+  await goto(page, "/shutdown?edit=1");
   await expect(page.getByLabel("Note")).toHaveValue("Good focus in the morning.\nעייף בערב.");
 });
 
 test("a new task can be tomorrow's first task", async ({ page }) => {
-  await page.goto("/shutdown");
+  await goto(page, "/shutdown");
   await page.getByRole("radio", { name: "A new task" }).check();
   await page.getByLabel("New task for tomorrow").fill("مراجعة الفصل الثالث");
   await choose(page, "Grades");
   await page.getByRole("button", { name: "Close the day" }).click();
   await expect(page.getByText(/Tomorrow starts with:/)).toContainText("مراجعة الفصل الثالث");
-  await page.goto("/tasks");
+  await goto(page, "/tasks");
   await expect(page.getByRole("listitem").filter({ hasText: "مراجعة الفصل الثالث" })).toContainText(
     "Tomorrow",
   );
