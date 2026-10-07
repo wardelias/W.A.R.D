@@ -433,6 +433,62 @@ export type Database = {
           },
         ];
       };
+      nudges_sent: {
+        Row: {
+          day: string;
+          key: string;
+          sent_at: string;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          day: string;
+          key: string;
+          sent_at?: string;
+          user_id: string;
+        };
+        Update: {
+          day?: string;
+          key?: string;
+          sent_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      push_subscriptions: {
+        Row: {
+          auth: string;
+          created_at: string;
+          endpoint: string;
+          id: string;
+          last_used_at: string | null;
+          p256dh: string;
+          user_agent: string | null;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          auth: string;
+          created_at?: string;
+          endpoint: string;
+          id?: string;
+          last_used_at?: string | null;
+          p256dh: string;
+          user_agent?: string | null;
+          user_id?: string;
+        };
+        Update: {
+          auth?: string;
+          created_at?: string;
+          endpoint?: string;
+          id?: string;
+          last_used_at?: string | null;
+          p256dh?: string;
+          user_agent?: string | null;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       reviews: {
         Row: {
           completed_at: string;
@@ -482,6 +538,8 @@ export type Database = {
           focus_block_min: number;
           focus_capacity_min: number;
           focus_windows: NonNullable<Json>;
+          nudge_habits: boolean;
+          nudge_shutdown: boolean;
           onboarded_at: string | null;
           shutdown_time: string;
           theme: string;
@@ -500,6 +558,8 @@ export type Database = {
           focus_block_min?: number;
           focus_capacity_min?: number;
           focus_windows?: NonNullable<Json>;
+          nudge_habits?: boolean;
+          nudge_shutdown?: boolean;
           onboarded_at?: string | null;
           shutdown_time?: string;
           theme?: string;
@@ -517,6 +577,8 @@ export type Database = {
           focus_block_min?: number;
           focus_capacity_min?: number;
           focus_windows?: NonNullable<Json>;
+          nudge_habits?: boolean;
+          nudge_shutdown?: boolean;
           onboarded_at?: string | null;
           shutdown_time?: string;
           theme?: string;

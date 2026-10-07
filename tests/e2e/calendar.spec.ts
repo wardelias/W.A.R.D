@@ -62,7 +62,11 @@ test("the cron endpoint needs the secret", async ({ request }) => {
     headers: { Authorization: `Bearer ${secret}` },
   });
   expect(ok.status()).toBe(200);
-  expect(await ok.json()).toEqual({ synced: expect.any(Number), failed: 0 });
+  expect(await ok.json()).toEqual({
+    synced: expect.any(Number),
+    nudges: expect.any(Number),
+    failed: 0,
+  });
 });
 
 test("the test-only calendar route needs a session", async ({ browser }) => {

@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { serverEnv } from "@/server/env";
 import { syncIfStale } from "@/server/google/sync";
+import { runNudges, webPushSender } from "@/server/push/sender";
 import { createAdminClient } from "@/server/supabase/admin";
 
 /** Called every 5 minutes by pg_cron (see supabase/migrations/*_sync.sql). */
@@ -28,5 +29,19 @@ export async function POST(request: NextRequest) {
       failed++;
     }
   }
-  return NextResponse.json({ synced, failed });
+
+  // Nudges: for users with at least one device subscribed.
+  let nudges = 0;
+  const send = webPushSender();
+  if (send) {
+    const { data: subs } = await admin.from("push_subscriptions").select("user_id").limit(200);
+    for (const userId of new Set((subs ?? []).map((s) => s.user_id))) {
+      try {
+        nudges += (await runNudges(admin, userId, { send })).sent.length;
+      } catch {
+        failed++;
+      }
+    }
+  }
+  return NextResponse.json({ synced, nudges, failed });
 }

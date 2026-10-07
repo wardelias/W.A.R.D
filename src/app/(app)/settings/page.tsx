@@ -3,6 +3,8 @@ import { GoogleSettings } from "@/components/calendar/google-settings";
 import { GoalsForm } from "@/components/settings/goals-form";
 import { ScheduleForm } from "@/components/settings/schedule-form";
 import { ThemeChooser } from "@/components/settings/theme-chooser";
+import { NotificationSettings } from "@/components/settings/notifications";
+import { publicEnv } from "@/lib/env";
 import { listGoals } from "@/server/services/goals";
 import { scheduleValues, timeZoneList } from "@/lib/settings-values";
 import { Button, Notice, Section } from "@/components/ui";
@@ -58,6 +60,14 @@ async function SettingsView({ searchParams }: Pick<PageProps<"/settings">, "sear
           email={status.connection?.email ?? null}
           lastSync={ago(status.lastSyncedAt, ctx.now)}
           calendars={status.calendars}
+        />
+      </Section>
+
+      <Section title="Notifications">
+        <NotificationSettings
+          vapidPublicKey={publicEnv().NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? null}
+          habits={ctx.settings.nudge_habits}
+          shutdown={ctx.settings.nudge_shutdown}
         />
       </Section>
 
