@@ -82,6 +82,6 @@ function withCookies(target: NextResponse, source: NextResponse) {
 export const config = {
   matcher: [
     // Everything except static assets, the PWA files and the cron endpoint.
-    "/((?!_next/static|_next/image|favicon.ico|icon|apple-icon|manifest.webmanifest|sw.js|api/cron).*)",
+    "/((?!_next/static|_next/image|favicon.ico|icon|apple-icon|manifest.webmanifest|sw.js|offline|api/cron).*)",
   ],
 };
