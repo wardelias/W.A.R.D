@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getViewer } from "@/server/auth";
 import { getConnection } from "@/server/google/accounts";
-import { fakeGoogleSide, fakeProvider } from "@/server/google/fake-provider";
+import { fakeGoogleSide, fakeProvider, resetFakeCalendar } from "@/server/google/fake-provider";
 import { createAdminClient } from "@/server/supabase/admin";
 
 /**
@@ -25,6 +25,7 @@ const body = z.discriminatedUnion("op", [
   z.object({ op: z.literal("move"), eventId: z.string(), start: z.string(), end: z.string() }),
   z.object({ op: z.literal("delete"), eventId: z.string() }),
   z.object({ op: z.literal("list") }),
+  z.object({ op: z.literal("reset") }),
 ]);
 
 export async function POST(request: NextRequest) {
@@ -32,6 +33,10 @@ export async function POST(request: NextRequest) {
   const viewer = await getViewer();
   if (!viewer) return NextResponse.json({ error: "sign in" }, { status: 401 });
   const input = body.parse(await request.json());
+  if (input.op === "reset") {
+    resetFakeCalendar();
+    return NextResponse.json({ ok: true });
+  }
   const connection = await getConnection(createAdminClient(), viewer.id);
   const ward = connection?.wardCalendarId;
   if (!ward) return NextResponse.json({ error: "not connected" }, { status: 400 });

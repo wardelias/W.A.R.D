@@ -43,13 +43,13 @@ export function HabitForm({ goals, initial }: { goals: Goal[]; initial: HabitFor
   const [block, setBlock] = useState(initial.blockMin ? String(initial.blockMin) : "");
   const [strict, setStrict] = useState(initial.strict);
 
-  const blockActive = Boolean(time && block);
+  const blockActive = Boolean(time && block && kind !== "per_week");
   const scheduleText =
     kind === "daily"
       ? "every day"
       : kind === "days"
         ? days.map((d) => DAY_NAMES[d]).join(" ") || "the chosen days"
-        : `the days you plan (${perWeek}× a week)`;
+        : "";
 
   return (
     <form action={action} className="space-y-6">
@@ -60,7 +60,7 @@ export function HabitForm({ goals, initial }: { goals: Goal[]; initial: HabitFor
         ? days.map((d) => <input key={d} type="hidden" name="scheduleDays" value={d} />)
         : null}
       {kind === "per_week" ? <input type="hidden" name="perWeek" value={perWeek} /> : null}
-      <input type="hidden" name="blockMin" value={time ? block : ""} />
+      <input type="hidden" name="blockMin" value={blockActive ? block : ""} />
 
       <div>
         <Label htmlFor="name">Name</Label>
@@ -154,7 +154,7 @@ export function HabitForm({ goals, initial }: { goals: Goal[]; initial: HabitFor
         <p className="mt-1 text-sm text-muted">Used for the nudge and the calendar block.</p>
       </div>
 
-      {time ? (
+      {time && kind !== "per_week" ? (
         <Chips
           legend="Block"
           options={[

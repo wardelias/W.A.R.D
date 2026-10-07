@@ -98,7 +98,27 @@ export async function fakeGoogle(page: Page, body: Record<string, unknown>) {
 
 /** Connects the fake Google Calendar through Settings. */
 export async function connectGoogle(page: Page) {
+  // Start from an empty fake Google account.
+  await fakeGoogle(page, { op: "reset" });
   await page.goto("/settings");
   await page.getByRole("link", { name: "Connect Google Calendar" }).click();
   await expect(page.getByText("Google Calendar connected.")).toBeVisible();
+}
+
+/** The user's logical "today" (Asia/Jerusalem, 04:00 rollover) as YYYY-MM-DD, plus n days. */
+export function logicalDate(addDays = 0, timeZone = "Asia/Jerusalem"): string {
+  const shifted = new Date(Date.now() - 4 * 3_600_000);
+  const local = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(shifted);
+  const d = new Date(`${local}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + addDays);
+  return d.toISOString().slice(0, 10);
+}
+
+export function blockIdFromEventId(eventId: string): string {
+  return `${eventId.slice(0, 8)}-${eventId.slice(8, 12)}-${eventId.slice(12, 16)}-${eventId.slice(16, 20)}-${eventId.slice(20)}`;
 }

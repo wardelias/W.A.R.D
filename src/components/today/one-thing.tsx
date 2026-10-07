@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
-import { Button, Notice, UserText } from "@/components/ui";
+import { Button, buttonClass, Notice, UserText } from "@/components/ui";
 import { setOneThingAction } from "@/server/actions/today";
 
 type Candidate = { id: string; title: string; meta: string };
@@ -42,7 +43,10 @@ export function OneThing({
           {setBeforeDay ? " · set last night" : ""}
         </p>
         <div className="mt-2 flex gap-2">
-          <Button variant="quiet" className="-ms-3" onClick={() => setPicking(true)}>
+          <Link href={`/focus/new?task=${current.id}`} className={buttonClass("plain")}>
+            Schedule
+          </Link>
+          <Button variant="quiet" onClick={() => setPicking(true)}>
             Change
           </Button>
         </div>

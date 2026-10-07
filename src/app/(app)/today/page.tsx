@@ -231,6 +231,11 @@ async function Today() {
           </p>
         ) : null}
         <Agenda items={agenda} timeZone={ctx.settings.timezone} />
+        <p className="mt-3">
+          <Link href="/focus/new" className={buttonClass("plain")}>
+            + Focus block
+          </Link>
+        </p>
         {!calendar.connection ? (
           <p className="mt-2 text-sm text-muted">
             <Link href="/settings">Connect Google Calendar</Link> to see your day here.

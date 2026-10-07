@@ -3,7 +3,8 @@
 import { useActionState, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Chips } from "@/components/chips";
-import { Button, Label, Notice, TextArea, TextField } from "@/components/ui";
+import Link from "next/link";
+import { Button, buttonClass, Label, Notice, TextArea, TextField } from "@/components/ui";
 import type { ActionResult } from "@/server/actions/run";
 import { setTaskStatusAction, updateTaskAction } from "@/server/actions/tasks";
 import type { Task } from "@/server/services/tasks";
@@ -116,6 +117,11 @@ export function EditTaskForm({
       </form>
 
       <div className="flex flex-wrap gap-2 border-t border-line pt-5">
+        {task.status === "open" ? (
+          <Link href={`/focus/new?task=${task.id}`} className={buttonClass("plain")}>
+            Focus block
+          </Link>
+        ) : null}
         {task.status === "done" ? (
           <Button onClick={() => setStatus("open")} disabled={changing}>
             Reopen

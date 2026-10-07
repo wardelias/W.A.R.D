@@ -19,6 +19,7 @@ import {
   type HabitInput,
 } from "@/server/validation/habits";
 import { parse } from "@/server/validation/parse";
+import { materializeNow, syncHabitBlocks } from "@/server/services/blocks";
 import type { z } from "zod";
 
 /** How far back streaks and stats look (keeps queries bounded). */
@@ -109,7 +110,8 @@ function toRow(v: z.output<typeof habitInput>) {
     schedule_days: v.scheduleKind === "days" ? v.scheduleDays : null,
     per_week: v.scheduleKind === "per_week" ? v.perWeek : null,
     target_time: v.targetTime,
-    block_min: v.targetTime ? v.blockMin : null,
+    // Blocks need fixed days: daily or chosen-days habits only.
+    block_min: v.targetTime && v.scheduleKind !== "per_week" ? v.blockMin : null,
     grace_allowed: v.strict ? 0 : 1,
     grace_window: defaultGraceWindow(v.scheduleKind),
   };
@@ -140,7 +142,9 @@ export async function createHabit(ctx: Ctx, input: HabitInput): Promise<Habit> {
       .single(),
     "save the habit",
   ) as unknown as HabitRow;
-  return toHabit(row);
+  const habit = toHabit(row);
+  if (habit.blockMin) await materializeNow(ctx);
+  return habit;
 }
 
 export async function updateHabit(
@@ -148,12 +152,28 @@ export async function updateHabit(
   input: z.input<typeof updateHabitInput>,
 ): Promise<Habit> {
   const v = parse(updateHabitInput, input);
+  const before = await getHabit(ctx, v.id);
   const row = check(
     await ctx.db.from("habits").update(toRow(v)).eq("id", v.id).select(HABIT_COLUMNS).maybeSingle(),
     "save the habit",
   ) as unknown as HabitRow | null;
   if (!row) throw new ServiceError("That habit no longer exists.");
-  return toHabit(row);
+  const habit = toHabit(row);
+  if (before?.blockMin || habit.blockMin) {
+    await syncHabitBlocks(
+      ctx,
+      {
+        id: habit.id,
+        name: habit.name,
+        targetTime: habit.targetTime,
+        blockMin: habit.blockMin,
+        archived: false,
+      },
+      { revive: !before?.blockMin && Boolean(habit.blockMin) },
+    );
+    if (habit.blockMin) await materializeNow(ctx);
+  }
+  return habit;
 }
 
 /** Archive instead of delete: history stays honest and can be restored. */
@@ -165,6 +185,11 @@ export async function setHabitArchived(ctx: Ctx, id: string, archived: boolean):
       .eq("id", id),
     archived ? "archive the habit" : "restore the habit",
   );
+  const habit = await getHabit(ctx, id);
+  if (habit?.blockMin) {
+    await syncHabitBlocks(ctx, { ...habit, archived }, { revive: !archived });
+    if (!archived) await materializeNow(ctx);
+  }
 }
 
 function allowedDay(ctx: Ctx, day: IsoDate | undefined): IsoDate {
