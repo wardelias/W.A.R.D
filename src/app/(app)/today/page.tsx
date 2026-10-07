@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { addDays, localTime } from "@/domain/day";
-import type { OverloadFix } from "@/domain/capacity";
 import { isolate } from "@/domain/text";
 import { HabitCheck } from "@/components/habits/habit-check";
 import { EarlierTasks } from "@/components/today/earlier-tasks";
@@ -10,10 +9,11 @@ import { PlanCheckNotice } from "@/components/today/plan-check";
 import { QuickAdd } from "@/components/tasks/quick-add";
 import { TaskRow } from "@/components/tasks/task-row";
 import { buttonClass, Muted, Section } from "@/components/ui";
-import { formatDate, formatMinutes, formatRelativeDay } from "@/lib/format";
+import { formatDate, formatMinutes } from "@/lib/format";
 import { taskMeta } from "@/lib/task-meta";
+import { fixMoveIds, fixSentence, planLines } from "@/lib/plan-text";
 import { getContext, type Ctx } from "@/server/context";
-import { planCheck, type PlanCheck } from "@/server/services/capacity";
+import { planCheck } from "@/server/services/capacity";
 import { listGoals } from "@/server/services/goals";
 import { habitSummaries } from "@/server/services/habits";
 import { getDayPlan } from "@/server/services/plans";
@@ -64,28 +64,6 @@ function nowLine(agenda: AgendaItem[], now: Date, timeZone: string): string | nu
   return null;
 }
 
-function fixSentence(fix: OverloadFix, today: string): string {
-  const moves = fix.moves.filter((m) => m.toDay);
-  if (moves.length === 0) return "No day in the coming week has room. Drop or shrink something.";
-  const parts = moves.map(
-    (m) =>
-      `“${isolate(m.item.title)}” (${formatMinutes(m.item.minutes)}) to ${formatRelativeDay(m.toDay!, today)}`,
-  );
-  const list = parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}` : parts[0];
-  return `Move ${list}?${fix.fixed ? "" : " Still over after that."}`;
-}
-
-function planLines(check: PlanCheck): string[] {
-  const lines: string[] = [];
-  if (check.overBy > 0) {
-    lines.push(
-      `Focus planned ${formatMinutes(check.plannedMin)} of ${formatMinutes(check.capacityMin)}. Over by ${formatMinutes(check.overBy)}.`,
-    );
-  }
-  if (check.noPriorityOne) lines.push("No Grades work planned today.");
-  return lines;
-}
-
 async function Today() {
   const ctx = await getContext();
   const { today } = ctx;
@@ -110,9 +88,7 @@ async function Today() {
   const todayHabits = habits.filter((h) => h.scheduledToday);
   const lines = planLines(check);
   const afterShutdown = isAfterShutdown(ctx);
-  const moveIds = (check.fix?.moves ?? [])
-    .filter((m) => m.toDay)
-    .map((m) => (m.item.kind === "task" ? m.item.taskId : m.item.blockId));
+  const moveIds = fixMoveIds(check.fix);
 
   return (
     <div>
