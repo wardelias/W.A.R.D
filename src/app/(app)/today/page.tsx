@@ -17,6 +17,7 @@ import { planCheck, type PlanCheck } from "@/server/services/capacity";
 import { listGoals } from "@/server/services/goals";
 import { habitSummaries } from "@/server/services/habits";
 import { getDayPlan } from "@/server/services/plans";
+import { getDailyReview } from "@/server/services/checkin";
 import { overdueTasks, tasksForDay } from "@/server/services/tasks";
 
 export const metadata = { title: "Today · W.A.R.D." };
@@ -61,13 +62,14 @@ function planLines(check: PlanCheck): string[] {
 async function Today() {
   const ctx = await getContext();
   const { today } = ctx;
-  const [goals, plan, dayTasks, earlier, check, habits] = await Promise.all([
+  const [goals, plan, dayTasks, earlier, check, habits, review] = await Promise.all([
     listGoals(ctx),
     getDayPlan(ctx, today),
     tasksForDay(ctx, today),
     overdueTasks(ctx, today),
     planCheck(ctx, today),
     habitSummaries(ctx),
+    getDailyReview(ctx, today),
   ]);
 
   const openToday = dayTasks.filter((t) => t.status === "open");
@@ -207,18 +209,24 @@ async function Today() {
       </Section>
 
       <div className="mt-10">
-        <Link
-          href="/shutdown"
-          className={
-            afterShutdown
-              ? buttonClass("primary", "w-full")
-              : buttonClass("plain", "w-full text-muted")
-          }
-        >
-          {afterShutdown
-            ? "Start shutdown"
-            : `Shutdown (${ctx.settings.shutdown_time.slice(0, 5)})`}
-        </Link>
+        {review ? (
+          <Link href="/shutdown" className={buttonClass("plain", "w-full text-muted")}>
+            Day closed · View
+          </Link>
+        ) : (
+          <Link
+            href="/shutdown"
+            className={
+              afterShutdown
+                ? buttonClass("primary", "w-full")
+                : buttonClass("plain", "w-full text-muted")
+            }
+          >
+            {afterShutdown
+              ? "Start shutdown"
+              : `Shutdown (${ctx.settings.shutdown_time.slice(0, 5)})`}
+          </Link>
+        )}
       </div>
     </div>
   );
