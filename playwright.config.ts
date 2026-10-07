@@ -22,10 +22,21 @@ export default defineConfig({
     launchOptions,
   },
   projects: [
-    { name: "phone", use: { ...devices["Pixel 7"], launchOptions } },
+    { name: "setup", testMatch: /auth\.setup\.ts/, use: { launchOptions } },
+    {
+      name: "phone",
+      dependencies: ["setup"],
+      use: { ...devices["Pixel 7"], launchOptions, storageState: "tests/e2e/.auth/state.json" },
+    },
     {
       name: "desktop",
-      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 }, launchOptions },
+      dependencies: ["setup"],
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1280, height: 800 },
+        launchOptions,
+        storageState: "tests/e2e/.auth/state.json",
+      },
     },
   ],
   webServer: {

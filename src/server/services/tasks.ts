@@ -240,3 +240,18 @@ export async function reorderDay(ctx: Ctx, day: IsoDate, orderedIds: string[]): 
     );
   }
 }
+
+/** Open tasks planned for a day before `day` (they slipped without a check-in). */
+export async function overdueTasks(ctx: Ctx, day: IsoDate): Promise<Task[]> {
+  const rows = check(
+    await ctx.db
+      .from("tasks")
+      .select(TASK_COLUMNS)
+      .eq("status", "open")
+      .lt("planned_for", day)
+      .order("planned_for")
+      .order("position", { nullsFirst: false }),
+    "load earlier tasks",
+  ) as unknown as TaskRow[];
+  return (rows ?? []).map(toTask);
+}

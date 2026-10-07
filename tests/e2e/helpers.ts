@@ -1,7 +1,8 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 const MAILPIT = process.env.MAILPIT_URL ?? "http://127.0.0.1:54324";
 export const E2E_EMAIL = process.env.E2E_EMAIL ?? "e2e@ward.local";
+export const STORAGE_STATE = "tests/e2e/.auth/state.json";
 
 type MailSummary = { ID: string; Created: string; To: { Address: string }[] };
 
@@ -35,4 +36,47 @@ export async function signIn(page: Page, email = E2E_EMAIL) {
   await page.getByLabel("6-digit code").fill(code);
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL(/\/(today|welcome)/);
+}
+
+/** Taps a visible chip (the label of a hidden radio) and waits until it's selected. */
+export async function choose(scope: Page | Locator, label: string) {
+  const chip = scope.locator("label").filter({ hasText: new RegExp(`^${label}$`) });
+  await chip.first().click();
+  await expect(chip.first().locator('input[type="radio"]')).toBeChecked();
+}
+
+/** The quick-add form. */
+export function quickAdd(page: Page) {
+  return page.locator("form").filter({ has: page.getByLabel("Add a task") });
+}
+
+/** Clears the test user's planning data (keeps the account and session). */
+export async function resetUserData(email = E2E_EMAIL) {
+  const { default: pg } = await import("pg");
+  const client = new pg.Client({
+    connectionString:
+      process.env.SUPABASE_DB_URL ?? "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
+  });
+  await client.connect();
+  try {
+    await client.query(
+      `with u as (select id from auth.users where email = $1)
+       , a as (delete from public.calendar_blocks where user_id in (select id from u))
+       , b as (delete from public.day_plans where user_id in (select id from u))
+       , c as (delete from public.reviews where user_id in (select id from u))
+       , d as (delete from public.habit_logs where user_id in (select id from u))
+       select 1`,
+      [email],
+    );
+    await client.query(
+      `delete from public.tasks where user_id in (select id from auth.users where email = $1)`,
+      [email],
+    );
+    await client.query(
+      `delete from public.habits where user_id in (select id from auth.users where email = $1)`,
+      [email],
+    );
+  } finally {
+    await client.end();
+  }
 }

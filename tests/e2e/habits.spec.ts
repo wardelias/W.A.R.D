@@ -1,16 +1,15 @@
 import { expect, test } from "@playwright/test";
-import { signIn } from "./helpers";
+import { choose } from "./helpers";
 
 test("create a habit, log it full or minimum with one tap, see honest stats, archive it", async ({
   page,
 }) => {
   const name = `קריאה ${Date.now().toString(36)}`;
-  await signIn(page);
   await page.goto("/habits");
   await page.getByRole("link", { name: "+ New" }).click();
 
   await page.getByLabel("Name").fill(name);
-  await page.getByRole("radio", { name: "Grades" }).check({ force: true });
+  await choose(page, "Grades");
   // The minimum version is required
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByLabel("Minimum version")).toBeFocused();
@@ -56,11 +55,10 @@ test("create a habit, log it full or minimum with one tap, see honest stats, arc
 });
 
 test("a days habit needs at least one day", async ({ page }) => {
-  await signIn(page);
   await page.goto("/habits/new");
   await page.getByLabel("Name").fill("Gym");
   await page.getByLabel("Minimum version").fill("10 push-ups");
-  await page.getByRole("radio", { name: "Days" }).check({ force: true });
+  await choose(page, "Days");
   for (const d of ["Sun", "Mon", "Tue", "Wed", "Thu"]) {
     await page.getByRole("button", { name: d, exact: true }).click();
   }
