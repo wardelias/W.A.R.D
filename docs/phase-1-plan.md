@@ -17,23 +17,23 @@ open Today → confirm the one thing → schedule a focus block for it (it appea
 
 ## 2. Key decisions
 
-| Area | Choice | Why |
-|---|---|---|
-| App | Next.js 16 (App Router), TypeScript strict, Tailwind v4, pnpm | As briefed. Versions get pinned when the project is scaffolded. |
-| Hosting | Vercel (Hobby) + Supabase Cloud (free) | No servers to run. |
-| Scheduler | Supabase `pg_cron` + `pg_net` call one protected route every 5 min | Vercel Hobby cron runs only once a day. A `pg_cron` job lives in a migration, so it is version-controlled. n8n isn't needed yet. |
-| Code layers | `src/domain` holds pure logic. `src/server/services` holds typed functions that read and write data. UI uses Server Components + Server Actions. | In Phase 2, each assistant tool wraps one service function (`create_task` → `services.tasks.create`), so no logic gets written twice. |
-| Login | Supabase Auth: Google sign-in (basic scopes), plus a 6-digit email code as fallback. Sign-in is locked to your email. | Email codes work inside an installed iOS PWA. Magic links open Safari instead. |
-| Calendar consent | A separate "Connect Google Calendar" step, using our own OAuth code flow (PKCE + state, offline access) | Login keeps the minimum scopes. Supabase doesn't store or refresh Google tokens, so we manage them ourselves. |
-| Where blocks live | A dedicated secondary calendar named **"W.A.R.D."**, created by the app | W.A.R.D. never writes to your real calendars. You can show or hide it in Google Calendar, and two-way sync stays contained. |
-| Google scopes | `calendar.app.created` (read/write only calendars the app created), `calendar.events.readonly`, `calendar.calendarlist.readonly` | Write access covers only W.A.R.D.'s own calendar. |
-| Token storage | AES-256-GCM in the app server with the key in env. The table is readable only by the service role. | A database leak alone doesn't expose tokens. Tokens never reach the browser or the logs. |
-| Sync model | Windowed pull (−7 / +35 days) plus an outbox-style push. No Google push channels in Phase 1. | Correct with recurring events, small volume for one user, and much simpler than syncTokens + webhooks. Push channels are in the backlog. |
-| Habit blocks | Single events created for the next 7 days, rolling. No recurring Google events. | Avoids handling RRULE exceptions in two-way sync. |
-| Google event IDs | Event id = block UUID without hyphens | Inserts become idempotent: a retried create can never duplicate an event. |
-| Nudges | Google Calendar popup at block start (works on both phones, no extra infra). Web Push for habit nudges and the shutdown reminder (step 15, can be cut). | |
-| Offline | Installable PWA with a cached shell. Writes need a network connection. | An offline write queue is in the backlog. |
-| Status fields | `text` + `check` constraints, not Postgres enums | Easier to change later. |
+| Area              | Choice                                                                                                                                                  | Why                                                                                                                                      |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| App               | Next.js 16 (App Router), TypeScript strict, Tailwind v4, pnpm                                                                                           | As briefed. Versions get pinned when the project is scaffolded.                                                                          |
+| Hosting           | Vercel (Hobby) + Supabase Cloud (free)                                                                                                                  | No servers to run.                                                                                                                       |
+| Scheduler         | Supabase `pg_cron` + `pg_net` call one protected route every 5 min                                                                                      | Vercel Hobby cron runs only once a day. A `pg_cron` job lives in a migration, so it is version-controlled. n8n isn't needed yet.         |
+| Code layers       | `src/domain` holds pure logic. `src/server/services` holds typed functions that read and write data. UI uses Server Components + Server Actions.        | In Phase 2, each assistant tool wraps one service function (`create_task` → `services.tasks.create`), so no logic gets written twice.    |
+| Login             | Supabase Auth: Google sign-in (basic scopes), plus a 6-digit email code as fallback. Sign-in is locked to your email.                                   | Email codes work inside an installed iOS PWA. Magic links open Safari instead.                                                           |
+| Calendar consent  | A separate "Connect Google Calendar" step, using our own OAuth code flow (PKCE + state, offline access)                                                 | Login keeps the minimum scopes. Supabase doesn't store or refresh Google tokens, so we manage them ourselves.                            |
+| Where blocks live | A dedicated secondary calendar named **"W.A.R.D."**, created by the app                                                                                 | W.A.R.D. never writes to your real calendars. You can show or hide it in Google Calendar, and two-way sync stays contained.              |
+| Google scopes     | `calendar.app.created` (read/write only calendars the app created), `calendar.events.readonly`, `calendar.calendarlist.readonly`                        | Write access covers only W.A.R.D.'s own calendar.                                                                                        |
+| Token storage     | AES-256-GCM in the app server with the key in env. The table is readable only by the service role.                                                      | A database leak alone doesn't expose tokens. Tokens never reach the browser or the logs.                                                 |
+| Sync model        | Windowed pull (−7 / +35 days) plus an outbox-style push. No Google push channels in Phase 1.                                                            | Correct with recurring events, small volume for one user, and much simpler than syncTokens + webhooks. Push channels are in the backlog. |
+| Habit blocks      | Single events created for the next 7 days, rolling. No recurring Google events.                                                                         | Avoids handling RRULE exceptions in two-way sync.                                                                                        |
+| Google event IDs  | Event id = block UUID without hyphens                                                                                                                   | Inserts become idempotent: a retried create can never duplicate an event.                                                                |
+| Nudges            | Google Calendar popup at block start (works on both phones, no extra infra). Web Push for habit nudges and the shutdown reminder (step 15, can be cut). |                                                                                                                                          |
+| Offline           | Installable PWA with a cached shell. Writes need a network connection.                                                                                  | An offline write queue is in the backlog.                                                                                                |
+| Status fields     | `text` + `check` constraints, not Postgres enums                                                                                                        | Easier to change later.                                                                                                                  |
 
 ---
 
@@ -100,6 +100,7 @@ W.A.R.D/
 ## 4. Database schema
 
 General rules:
+
 - Every table has `user_id uuid not null default auth.uid() references auth.users on delete cascade`.
 - RLS is enabled on every table, with one policy per operation: `user_id = (select auth.uid())`.
 - `goals`, `tasks` and `habits` have `unique (id, user_id)`. References between user tables use **composite foreign keys** `(x_id, user_id)`, so a row can never point at another user's data, even through a bug.
@@ -237,6 +238,7 @@ nudges_sent                                prevents duplicate pushes
 ```
 
 **Changes from the starting data model:**
+
 - Added `day_plans` (the one thing per day), `calendars` + `calendar_events` (Google read cache), `google_accounts` (tokens, server-only), and `push_subscriptions` / `nudges_sent`.
 - `notes`, `note_links`, `decisions`, `calls` and pgvector wait for their phases. Nothing in this schema blocks them.
 
@@ -245,9 +247,11 @@ nudges_sent                                prevents duplicate pushes
 ## 5. Core rules (tests are written against these definitions)
 
 ### 5.1 Logical day
+
 `logicalDay(instant, tz, rollover)`: the date in `tz` after subtracting `rollover` (04:00). A habit logged or a shutdown done at 00:40 counts for the previous day. Today, Week, streaks and capacity all use this one function. DST transitions are covered by tests.
 
 ### 5.2 Habit streaks with grace
+
 - A **period** is one scheduled day for `daily` and `days` habits, or one week (by `week_start`) for `per_week` habits.
 - Outcome per finished period: **hit** (full or minimum log; a per_week habit needs ≥ `per_week` logs) or **miss**. The current period is **pending**: it never counts and never breaks a streak.
 - Walk back from the latest finished period. A hit adds 1. A miss is **forgiven** (adds 0, streak continues) only if (a) the next newer period was not a miss and (b) no other forgiven miss falls within the last `grace_window` periods. Any other miss ends the streak. With the defaults, that means one forgiven miss per 7 scheduled days, never two in a row.
@@ -256,14 +260,18 @@ nudges_sent                                prevents duplicate pushes
 - The habit detail screen always shows honest numbers next to the streak: full / minimum / missed counts for the last 30 days, and which miss used the grace.
 
 ### 5.3 Planned deep work and overload
+
 `plannedDeep(day)` = minutes of focus blocks on that day (not deleted, not skipped) **plus** `est_min` of open tasks planned for that day that have no focus block on that day. Habit blocks and outside events don't count.
+
 - **Over capacity** when `plannedDeep > focus_capacity_min`. The warning always proposes a fix: move the lowest-ladder movable item(s) needed to get under capacity to the next day with room, and list exactly what will move. One tap applies it (with the calendar preview if blocks move).
 - **No priority-1 work**: a day with a plan but no Grades item gets one plain line: "No Grades work planned."
 
 ### 5.4 Next free focus slot
+
 `nextSlot(day, now, windows, busy, blockMin, breakMin)`: the earliest start (rounded up to 5 min, ≥ now) inside a focus window, where `[start, start+blockMin)` overlaps nothing busy and keeps a `breakMin` gap after the previous focus block. Busy = selected-calendar timed events marked busy + all W.A.R.D. blocks. All-day events don't count as busy. The one thing for the day gets the first slot (hardest first).
 
 ### 5.5 Multilingual text (Hebrew, Arabic, English)
+
 - Every input and every element that shows user text uses `dir="auto"`. Multi-line text also gets `unicode-bidi: plaintext`, so each paragraph takes its own direction (this handles switching language mid-text).
 - Layout uses only logical CSS (`ps/pe`, `ms/me`, `text-start`), so a future RTL UI language needs no layout rewrite.
 - Inputs are normalized to NFC. C0 control characters are rejected except newline and tab. Bidi marks (LRM/RLM/ALM) are kept because they are legitimate in Hebrew and Arabic. Length limits count code points.
@@ -279,6 +287,7 @@ Bottom nav, text only: **Today · Tasks · Habits · Week**. Settings is linked 
 Style: one text size scale, one accent color for the primary action, light and dark themes, no icons or decoration. `[ ]` marks a tap target.
 
 ### 6.1 Sign in
+
 ```
 W.A.R.D.
 
@@ -289,6 +298,7 @@ or get a code by email
 ```
 
 ### 6.2 First run (welcome, about 2 minutes, every step skippable)
+
 ```
 1/4  Your day
      Time zone       Asia/Jerusalem
@@ -317,6 +327,7 @@ or get a code by email
 ```
 
 ### 6.3 Today
+
 ```
 Tue 6 Oct                                         Settings
 NOW  Focus · Algorithms HW 3 · until 11:45 (25m)   [ Done ]
@@ -356,11 +367,13 @@ HABITS                                             2 of 4
 ──────────────────────────────────────────────────────────
 Today          Tasks          Habits          Week
 ```
+
 - If the one thing isn't set, the section reads "Pick the one thing" and lists the top 3 as choices (one tap).
 - Logging a habit or checking off a task updates the screen immediately (optimistic update) and saves in the background. Tapping again undoes it.
 - If Google needs reconnecting, a one-line banner appears: "Google Calendar disconnected. [Reconnect]".
 
 ### 6.4 Focus block sheet (preview before any calendar write)
+
 ```
 Focus for: Algorithms HW 3
 Suggested  Today 11:00 (first free slot, 11:00–15:00 window)
@@ -373,9 +386,11 @@ Today after this: 5h 15m of 6h
 
 [ Add 2 blocks ]  [ Cancel ]
 ```
+
 Moving or deleting a block uses the same sheet: old → new, or "Removes … from Google Calendar".
 
 ### 6.5 Tasks
+
 ```
 Tasks                               [Open] [Done] [Dropped]
 [ Add a task…                                          ]
@@ -394,9 +409,11 @@ AGENCY
 HEALTH
 [ ] Meal prep for the week              60m · Fri
 ```
+
 Tapping a task opens the edit sheet: title, goal, estimate, planned day, due date, notes, `[Done] [Drop] [Focus block]`. Drop sets the status (reversible). Nothing gets hard-deleted from the UI in Phase 1.
 
 ### 6.6 Habits and habit detail
+
 ```
 Habits                                            [ + New ]
 Gym              Health · streak 6 · 30d 88%
@@ -404,6 +421,7 @@ Gym              Health · streak 6 · 30d 88%
 Read 20 min      Grades · streak 0 · 30d 61%
   min: 1 page · daily
 ```
+
 ```
 Gym · Health
 Streak 6 · grace used Thu 1 Oct (1 per 7 days, never twice in a row)
@@ -416,6 +434,7 @@ Oct 4     ✓  x  ○
 
 [ Edit ]  [ Archive ]
 ```
+
 ```
 Edit habit
 Name             [ Gym                         ]
@@ -431,6 +450,7 @@ Grace            1 miss per 7 days, never two in a row   [Strict]
 ```
 
 ### 6.7 Week
+
 ```
 Week · Sun 4 – Sat 10 Oct                  capacity 6h/day
 Sun 4    5h 10m
@@ -442,9 +462,11 @@ Fri 9    —
 Sat 10   —
 [ ← ]  [ → ]
 ```
+
 Tapping a day shows its blocks, events and planned tasks, with move actions (same preview sheet).
 
 ### 6.8 Night check-in (Shutdown)
+
 ```
 Shutdown · Tue 6 Oct                                ~1 min
 1  TODAY
@@ -470,9 +492,11 @@ Shutdown · Tue 6 Oct                                ~1 min
 
 [ Close the day ]
 ```
+
 Closing writes `reviews(daily)` (with a stats snapshot), sets `day_plans(tomorrow).mit_task_id`, moves the slipped tasks and increments their `slip_count`.
 
 ### 6.9 Settings
+
 ```
 SCHEDULE      Time zone · wake · shutdown · day ends at · focus windows
               Focus/break length · daily capacity
@@ -491,21 +515,25 @@ ACCOUNT       Sign out
 ## 7. Google Calendar sync
 
 **Ownership**
+
 - **Other calendars** (Primary, University, …): Google is the source of truth. W.A.R.D. reads them into the `calendar_events` cache and never writes to them. The scopes make this a hard limit, not just a code convention.
 - **The "W.A.R.D." calendar**: both sides can edit. The database owns the links (task, habit, goal, outcome). Time and title follow whichever side changed them last.
 
 **Connect**
+
 1. Settings → Connect → `/api/google/connect` builds the auth URL (PKCE + `state` in an httpOnly cookie, `access_type=offline`, `prompt=consent`, the three scopes).
 2. On callback: check `state`, exchange the code, encrypt and store the refresh token, read the calendar list into `calendars`, create the "W.A.R.D." calendar (or find it if it exists) and store its id.
 3. Disconnect: revoke the token at Google, delete the stored tokens, and keep local blocks. Ask before removing the W.A.R.D. calendar from Google (default: keep it).
 
 **Write path (W.A.R.D. → Google)**: every block change goes into the DB first with `sync_state = pending`, and then gets pushed immediately in the same Server Action.
+
 - Create: `events.insert` with `id = uuid without hyphens`, `extendedProperties.private.ward_block_id`, the user's time zone, and a popup reminder at 0 min if enabled. A `409` on retry means it already exists, which counts as success.
 - Move/edit: `events.patch` with `If-Match: <etag>`. A `412` means it changed in Google: fetch the event, apply the conflict rule below, and show the result.
 - Delete: `events.delete`. A `404` or `410` counts as success. The row keeps a `deleted_at` tombstone. IDs are never reused.
 - On failure (network error, rate limit), the block stays `pending`, the UI shows "not synced yet", and the next sync retries with backoff.
 
 **Read path (Google → W.A.R.D.)**, `syncUser()`:
+
 1. Refresh the access token if needed. If Google returns `invalid_grant`, set the account to `needs_reconnect` and show the banner.
 2. Push pending blocks.
 3. For each selected calendar: `events.list(timeMin = today−7d, timeMax = today+35d, singleEvents = true)` with paging. Replace that window in `calendar_events` in one transaction (upsert what came back, delete what didn't).
@@ -541,13 +569,13 @@ ACCOUNT       Sign out
 
 ## 9. Test approach
 
-| Layer | Tool | What is covered |
-|---|---|---|
-| Domain | Vitest | Logical day (rollover, DST), schedules, streak and grace (every rule in 5.2 has a named test), capacity and fix suggestion, next slot, text normalization and bidi wrapping. Target: 100% branch coverage of `src/domain`. |
-| Services + sync | Vitest + fake provider + recorded Google fixtures | Create/move/delete round trips, idempotent insert, 409/410/412, `invalid_grant`, imported events, tombstones, conflicts, pending retries. |
-| Database | pgTAP via `supabase test db` | RLS isolation for all tables, composite FKs, check constraints, signup trigger. |
-| End to end | Playwright (Chromium; 390×844 and 1280×800) | The main flow from section 1. Hebrew, Arabic and mixed titles keep their direction in lists, inputs and the check-in. Dark and light mode. Keyboard-only use of the check-in. |
-| Manual | Checklist in README | Real Google account: connect, add block, move it in Google → reflected, delete in Google → reflected, disconnect revokes. Installed PWA on a real phone. |
+| Layer           | Tool                                              | What is covered                                                                                                                                                                                                            |
+| --------------- | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Domain          | Vitest                                            | Logical day (rollover, DST), schedules, streak and grace (every rule in 5.2 has a named test), capacity and fix suggestion, next slot, text normalization and bidi wrapping. Target: 100% branch coverage of `src/domain`. |
+| Services + sync | Vitest + fake provider + recorded Google fixtures | Create/move/delete round trips, idempotent insert, 409/410/412, `invalid_grant`, imported events, tombstones, conflicts, pending retries.                                                                                  |
+| Database        | pgTAP via `supabase test db`                      | RLS isolation for all tables, composite FKs, check constraints, signup trigger.                                                                                                                                            |
+| End to end      | Playwright (Chromium; 390×844 and 1280×800)       | The main flow from section 1. Hebrew, Arabic and mixed titles keep their direction in lists, inputs and the check-in. Dark and light mode. Keyboard-only use of the check-in.                                              |
+| Manual          | Checklist in README                               | Real Google account: connect, add block, move it in Google → reflected, delete in Google → reflected, disconnect revokes. Installed PWA on a real phone.                                                                   |
 
 CI (GitHub Actions): lint, typecheck, unit tests, then `supabase start` → db tests → E2E on every push.
 
@@ -555,15 +583,15 @@ CI (GitHub Actions): lint, typecheck, unit tests, then `supabase start` → db t
 
 ## 10. Risks
 
-| Risk | Mitigation |
-|---|---|
-| Google OAuth apps in **Testing** status get refresh tokens that expire after 7 days | Set the consent screen to **In production** while unverified. You click through Google's "unverified app" warning once. That is fine for a personal app (cap of 100 users). If W.A.R.D. ever has other users, Google verification is required first. |
-| iOS standalone PWA: OAuth redirects and storage are isolated from Safari. Web Push only works after "Add to Home Screen" (iOS 16.4+), and iOS notifications have no action buttons. | Email-code login as fallback. On iOS a nudge opens a one-tap log screen. Test on a real device at milestones 2 and 4. |
-| Focus blocks in a secondary calendar don't show as busy in your primary calendar's free/busy view | Booking tools such as Calendly and Google appointment schedules can check extra calendars. Add the W.A.R.D. calendar there. |
-| Supabase free projects pause after about a week of no activity | Daily use avoids it. Supabase Pro removes the limit if needed. |
-| Late nights past midnight split the day in the wrong place | Rollover setting (04:00) used everywhere through one function. |
-| Two-way sync edge cases | Small surface (one calendar W.A.R.D. owns, single events only), idempotent ids, ETags, tombstones, and fake-provider tests for each case. |
-| Scope creep | Anything outside Phase 1 goes into `BACKLOG.md`. |
+| Risk                                                                                                                                                                                | Mitigation                                                                                                                                                                                                                                           |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Google OAuth apps in **Testing** status get refresh tokens that expire after 7 days                                                                                                 | Set the consent screen to **In production** while unverified. You click through Google's "unverified app" warning once. That is fine for a personal app (cap of 100 users). If W.A.R.D. ever has other users, Google verification is required first. |
+| iOS standalone PWA: OAuth redirects and storage are isolated from Safari. Web Push only works after "Add to Home Screen" (iOS 16.4+), and iOS notifications have no action buttons. | Email-code login as fallback. On iOS a nudge opens a one-tap log screen. Test on a real device at milestones 2 and 4.                                                                                                                                |
+| Focus blocks in a secondary calendar don't show as busy in your primary calendar's free/busy view                                                                                   | Booking tools such as Calendly and Google appointment schedules can check extra calendars. Add the W.A.R.D. calendar there.                                                                                                                          |
+| Supabase free projects pause after about a week of no activity                                                                                                                      | Daily use avoids it. Supabase Pro removes the limit if needed.                                                                                                                                                                                       |
+| Late nights past midnight split the day in the wrong place                                                                                                                          | Rollover setting (04:00) used everywhere through one function.                                                                                                                                                                                       |
+| Two-way sync edge cases                                                                                                                                                             | Small surface (one calendar W.A.R.D. owns, single events only), idempotent ids, ETags, tombstones, and fake-provider tests for each case.                                                                                                            |
+| Scope creep                                                                                                                                                                         | Anything outside Phase 1 goes into `BACKLOG.md`.                                                                                                                                                                                                     |
 
 ---
 
@@ -572,34 +600,25 @@ CI (GitHub Actions): lint, typecheck, unit tests, then `supabase start` → db t
 Each step is one reviewable commit (sometimes two), and the app runs after every step. After each step I report what changed, how to test it, and what's next. Estimates are focused build hours.
 
 **Milestone 1 — Foundation (~17 h)**
-1. **Scaffold & tooling** — Next.js + TS strict + Tailwind, ESLint/Prettier, Vitest, Playwright, CI workflow, `env.ts` (zod), `.env.example`, README skeleton. *2 h*
-2. **Schema v1** — migrations for all Phase 1 tables except push, RLS policies, composite FKs, signup trigger (settings + 3 goals), generated TS types, pgTAP RLS tests. *4 h*
-3. **Auth** — Google sign-in + email-code fallback, allowlist, session middleware, protected `(app)` group, sign out. *3 h*
-4. **Shell & look** — layout, text-only bottom nav, type scale, light/dark tokens with one accent, `UserText`/`TextField` with `dir="auto"`, PWA manifest + minimal service worker (installable). *3 h*
-5. **Domain logic, test-first** — `day`, `schedule`, `streak`, `capacity`, `slots`, `text`. *5 h*
 
-**Milestone 2 — Daily loop without Google (~16 h)**: usable every day from here.
-6. **Tasks** — services, actions, Tasks screen, quick add, edit sheet, goal tag required, planned day, top-3 order, drop/restore. *4 h*
-7. **Habits** — create/edit with required minimum version, schedules, grace; one-tap full/minimum logging with undo; detail screen with honest stats. *4 h*
-8. **Today** — logical day, one thing (pick/change), top 3, habits with the never-miss-twice prompt, plan check from task estimates. *4 h*
-9. **Night check-in** — today's tasks (done/move/drop, slip count), unlogged habits, tomorrow's first task + tomorrow's load, note; writes `reviews` + `day_plans`. *4 h*
+1. **Scaffold & tooling** — Next.js + TS strict + Tailwind, ESLint/Prettier, Vitest, Playwright, CI workflow, `env.ts` (zod), `.env.example`, README skeleton. _2 h_
+2. **Schema v1** — migrations for all Phase 1 tables except push, RLS policies, composite FKs, signup trigger (settings + 3 goals), generated TS types, pgTAP RLS tests. _4 h_
+3. **Auth** — Google sign-in + email-code fallback, allowlist, session middleware, protected `(app)` group, sign out. _3 h_
+4. **Shell & look** — layout, text-only bottom nav, type scale, light/dark tokens with one accent, `UserText`/`TextField` with `dir="auto"`, PWA manifest + minimal service worker (installable). _3 h_
+5. **Domain logic, test-first** — `day`, `schedule`, `streak`, `capacity`, `slots`, `text`. _5 h_
 
-**Milestone 3 — Google Calendar (~18 h)**
-10. **Connect Google** — OAuth (PKCE/state), encrypted tokens, refresh, `needs_reconnect` banner, create/find the W.A.R.D. calendar, calendar picker, disconnect + revoke. *4 h*
-11. **Read sync** — provider interface + fake, windowed pull into `calendar_events`, sync on open / manual / `pg_cron` tick, Calendar section on Today, busy time into `nextSlot`. *5 h*
-12. **Block write sync** — focus block sheet with preview, habit blocks (rolling 7 days), move/delete, reconcile Google-side edits, conflict rule, retries; focus-block outcomes in the check-in; blocks count in the plan check. *6 h*
-13. **Week** — 7-day capacity list, overload warning + one-tap fix with preview, "no Grades work" flag, day detail. *3 h*
+**Milestone 2 — Daily loop without Google (~16 h)**: usable every day from here. 6. **Tasks** — services, actions, Tasks screen, quick add, edit sheet, goal tag required, planned day, top-3 order, drop/restore. _4 h_ 7. **Habits** — create/edit with required minimum version, schedules, grace; one-tap full/minimum logging with undo; detail screen with honest stats. _4 h_ 8. **Today** — logical day, one thing (pick/change), top 3, habits with the never-miss-twice prompt, plan check from task estimates. _4 h_ 9. **Night check-in** — today's tasks (done/move/drop, slip count), unlogged habits, tomorrow's first task + tomorrow's load, note; writes `reviews` + `day_plans`. _4 h_
 
-**Milestone 4 — Finish (~12 h)**
-14. **Settings & first run** — all settings from 6.9, the 4-step welcome flow. *3 h*
-15. **Web Push nudges** (can be cut) — device subscription, habit nudge at `target_time` if not logged (never-miss-twice wording after a miss), shutdown reminder, at most 4 pushes a day, none during a focus block (sent at the next break), deduplicated through `nudges_sent`. *5 h*
-16. **Hardening & definition of done** — full E2E on phone and desktop sizes, he/ar/en text tests, security headers and pass, README (setup, env vars, run, test, manual Google checklist), real-phone run-through. *4 h*
+**Milestone 3 — Google Calendar (~18 h)** 10. **Connect Google** — OAuth (PKCE/state), encrypted tokens, refresh, `needs_reconnect` banner, create/find the W.A.R.D. calendar, calendar picker, disconnect + revoke. _4 h_ 11. **Read sync** — provider interface + fake, windowed pull into `calendar_events`, sync on open / manual / `pg_cron` tick, Calendar section on Today, busy time into `nextSlot`. _5 h_ 12. **Block write sync** — focus block sheet with preview, habit blocks (rolling 7 days), move/delete, reconcile Google-side edits, conflict rule, retries; focus-block outcomes in the check-in; blocks count in the plan check. _6 h_ 13. **Week** — 7-day capacity list, overload warning + one-tap fix with preview, "no Grades work" flag, day detail. _3 h_
+
+**Milestone 4 — Finish (~12 h)** 14. **Settings & first run** — all settings from 6.9, the 4-step welcome flow. _3 h_ 15. **Web Push nudges** (can be cut) — device subscription, habit nudge at `target_time` if not logged (never-miss-twice wording after a miss), shutdown reminder, at most 4 pushes a day, none during a focus block (sent at the next break), deduplicated through `nudges_sent`. _5 h_ 16. **Hardening & definition of done** — full E2E on phone and desktop sizes, he/ar/en text tests, security headers and pass, README (setup, env vars, run, test, manual Google checklist), real-phone run-through. _4 h_
 
 **Total: about 63 focused hours.** The app is usable daily after Milestone 2 (~33 h).
 
 **Your time:** create the Supabase project + Vercel project before step 2 (~20 min, I'll give exact steps). Create the Google Cloud project + OAuth client before step 10 (~20 min). Review at each milestone. Test on your phone after Milestones 2 and 4.
 
 **Environment variables** (`.env.example`):
+
 ```
 NEXT_PUBLIC_APP_URL
 NEXT_PUBLIC_SUPABASE_URL
