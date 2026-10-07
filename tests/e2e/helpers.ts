@@ -76,7 +76,29 @@ export async function resetUserData(email = E2E_EMAIL) {
       `delete from public.habits where user_id in (select id from auth.users where email = $1)`,
       [email],
     );
+    await client.query(
+      `delete from public.google_accounts where user_id in (select id from auth.users where email = $1)`,
+      [email],
+    );
+    await client.query(
+      `delete from public.calendars where user_id in (select id from auth.users where email = $1)`,
+      [email],
+    );
   } finally {
     await client.end();
   }
+}
+
+/** Changes the fake calendar "in Google" (test-only route, fake mode only). */
+export async function fakeGoogle(page: Page, body: Record<string, unknown>) {
+  const res = await page.request.post("/api/test/fake-calendar", { data: body });
+  expect(res.ok()).toBe(true);
+  return res.json();
+}
+
+/** Connects the fake Google Calendar through Settings. */
+export async function connectGoogle(page: Page) {
+  await page.goto("/settings");
+  await page.getByRole("link", { name: "Connect Google Calendar" }).click();
+  await expect(page.getByText("Google Calendar connected.")).toBeVisible();
 }

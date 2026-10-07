@@ -18,6 +18,11 @@ import { listGoals } from "@/server/services/goals";
 import { habitSummaries } from "@/server/services/habits";
 import { getDayPlan } from "@/server/services/plans";
 import { getDailyReview } from "@/server/services/checkin";
+import { calendarStatus, dayAgenda, type AgendaItem } from "@/server/services/calendar";
+import { Agenda } from "@/components/calendar/agenda";
+import { SyncOnOpen } from "@/components/calendar/sync-on-open";
+import { ago } from "@/lib/relative-time";
+import { formatClock } from "@/lib/format";
 import { overdueTasks, tasksForDay } from "@/server/services/tasks";
 
 export const metadata = { title: "Today · W.A.R.D." };
@@ -35,6 +40,28 @@ function isAfterShutdown(ctx: Ctx): boolean {
   const shutdown = ctx.settings.shutdown_time.slice(0, 5);
   const rollover = ctx.settings.day_rollover.slice(0, 5);
   return now >= shutdown || now < rollover;
+}
+
+/** "Now" during a focus block, or the next block starting within 15 minutes. */
+function nowLine(agenda: AgendaItem[], now: Date, timeZone: string): string | null {
+  const blocks = agenda.filter(
+    (a) => a.kind !== "event" && a.start && a.end && a.outcome !== "skipped",
+  );
+  const current = blocks.find((b) => b.start! <= now && now < b.end!);
+  if (current) {
+    const left = Math.ceil((current.end!.getTime() - now.getTime()) / 60_000);
+    const label =
+      current.kind === "focus" ? `Focus · ${isolate(current.title)}` : isolate(current.title);
+    return `Now: ${label} · until ${formatClock(current.end!, timeZone)} (${left}m left)`;
+  }
+  const next = blocks.find(
+    (b) => b.start! > now && b.start!.getTime() - now.getTime() <= 15 * 60_000,
+  );
+  if (next) {
+    const label = next.kind === "focus" ? `Focus · ${isolate(next.title)}` : isolate(next.title);
+    return `Next at ${formatClock(next.start!, timeZone)}: ${label}`;
+  }
+  return null;
 }
 
 function fixSentence(fix: OverloadFix, today: string): string {
@@ -62,15 +89,19 @@ function planLines(check: PlanCheck): string[] {
 async function Today() {
   const ctx = await getContext();
   const { today } = ctx;
-  const [goals, plan, dayTasks, earlier, check, habits, review] = await Promise.all([
-    listGoals(ctx),
-    getDayPlan(ctx, today),
-    tasksForDay(ctx, today),
-    overdueTasks(ctx, today),
-    planCheck(ctx, today),
-    habitSummaries(ctx),
-    getDailyReview(ctx, today),
-  ]);
+  const [goals, plan, dayTasks, earlier, check, habits, review, agenda, calendar] =
+    await Promise.all([
+      listGoals(ctx),
+      getDayPlan(ctx, today),
+      tasksForDay(ctx, today),
+      overdueTasks(ctx, today),
+      planCheck(ctx, today),
+      habitSummaries(ctx),
+      getDailyReview(ctx, today),
+      dayAgenda(ctx, today),
+      calendarStatus(ctx),
+    ]);
+  const now = nowLine(agenda, ctx.now, ctx.settings.timezone);
 
   const openToday = dayTasks.filter((t) => t.status === "open");
   const mit = dayTasks.find((t) => t.id === plan.mitTaskId) ?? null;
@@ -91,6 +122,8 @@ async function Today() {
           Settings
         </Link>
       </header>
+      <SyncOnOpen />
+      {now ? <p className="mt-2 border-s-2 border-accent ps-3 text-[15px]">{now}</p> : null}
 
       <Section title="One thing" className="mt-4">
         <OneThing
@@ -176,6 +209,34 @@ async function Today() {
           />
         </Section>
       ) : null}
+
+      <Section
+        title="Calendar"
+        aside={
+          calendar.connection
+            ? `synced ${ago(calendar.lastSyncedAt, ctx.now) ?? "never"}`
+            : undefined
+        }
+      >
+        {calendar.connection?.status === "needs_reconnect" ? (
+          <p className="mb-2 text-[15px]">
+            Google Calendar disconnected.{" "}
+            <Link
+              href="/api/google/connect"
+              prefetch={false}
+              className="underline underline-offset-4"
+            >
+              Reconnect
+            </Link>
+          </p>
+        ) : null}
+        <Agenda items={agenda} timeZone={ctx.settings.timezone} />
+        {!calendar.connection ? (
+          <p className="mt-2 text-sm text-muted">
+            <Link href="/settings">Connect Google Calendar</Link> to see your day here.
+          </p>
+        ) : null}
+      </Section>
 
       <Section
         title="Habits"

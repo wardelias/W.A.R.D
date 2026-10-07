@@ -5,7 +5,8 @@ export default defineConfig({
   resolve: { tsconfigPaths: true },
   test: {
     environment: "node",
-    include: ["tests/db/**/*.test.ts"],
+    include: ["tests/db/**/*.test.ts", "tests/integration/**/*.test.ts"],
+    setupFiles: ["tests/setup/server-only.ts", "tests/integration/env.ts"],
     fileParallelism: false,
     testTimeout: 20_000,
   },

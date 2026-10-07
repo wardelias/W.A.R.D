@@ -47,6 +47,7 @@ export default defineConfig({
     env: {
       NEXT_PUBLIC_APP_URL: baseURL,
       CALENDAR_PROVIDER: "fake",
+      E2E_TEST_ROUTES: "1",
     },
   },
 });

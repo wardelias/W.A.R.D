@@ -25,6 +25,7 @@ export type Database = {
     Tables: {
       calendar_blocks: {
         Row: {
+          changed_at: string;
           created_at: string;
           day: string;
           deleted_at: string | null;
@@ -32,6 +33,7 @@ export type Database = {
           goal_id: string | null;
           google_calendar_id: string | null;
           google_etag: string | null;
+          google_event_id: string | null;
           google_updated_at: string | null;
           habit_id: string | null;
           id: string;
@@ -47,6 +49,7 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
+          changed_at?: string;
           created_at?: string;
           day: string;
           deleted_at?: string | null;
@@ -54,6 +57,7 @@ export type Database = {
           goal_id?: string | null;
           google_calendar_id?: string | null;
           google_etag?: string | null;
+          google_event_id?: string | null;
           google_updated_at?: string | null;
           habit_id?: string | null;
           id?: string;
@@ -68,6 +72,7 @@ export type Database = {
           user_id?: string;
         };
         Update: {
+          changed_at?: string;
           created_at?: string;
           day?: string;
           deleted_at?: string | null;
@@ -75,6 +80,7 @@ export type Database = {
           goal_id?: string | null;
           google_calendar_id?: string | null;
           google_etag?: string | null;
+          google_event_id?: string | null;
           google_updated_at?: string | null;
           habit_id?: string | null;
           id?: string;
@@ -280,6 +286,8 @@ export type Database = {
           connected_at: string;
           email: string;
           google_sub: string;
+          last_sync_error: string | null;
+          last_synced_at: string | null;
           refresh_token_enc: string;
           scopes: string[];
           status: string;
@@ -294,6 +302,8 @@ export type Database = {
           connected_at?: string;
           email: string;
           google_sub: string;
+          last_sync_error?: string | null;
+          last_synced_at?: string | null;
           refresh_token_enc: string;
           scopes?: string[];
           status?: string;
@@ -307,6 +317,8 @@ export type Database = {
           connected_at?: string;
           email?: string;
           google_sub?: string;
+          last_sync_error?: string | null;
+          last_synced_at?: string | null;
           refresh_token_enc?: string;
           scopes?: string[];
           status?: string;
@@ -581,7 +593,18 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      replace_calendar_window: {
+        Args: {
+          p_calendar: string;
+          p_events: Json;
+          p_from: string;
+          p_from_date: string;
+          p_to: string;
+          p_to_date: string;
+          p_user: string;
+        };
+        Returns: number;
+      };
     };
     Enums: {
       [_ in never]: never;
