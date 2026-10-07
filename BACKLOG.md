@@ -12,6 +12,14 @@ Ideas parked outside the current phase. Nothing here gets built unless it's aske
 - Splitting a repeatedly slipped task into subtasks.
 - Recurring tasks.
 
+## Noticed while building Phase 1
+
+- Fix habit logs older than yesterday from the habit page (today and yesterday only for now).
+- Automated accessibility audit (axe) in the E2E suite, on top of the keyboard-reachable controls and labels already in place.
+- Nonce- or hash-based script CSP once Next.js supports it with Partial Prerendering (today: header CSP with inline scripts allowed, nothing third-party).
+- Google OAuth verification, only if W.A.R.D. ever gets other users.
+- A "pause" for the shutdown reminder on chosen days (e.g. Friday night), if the daily reminder turns out to be noise.
+
 ## Later (from the brief, don't build unless asked)
 
 - Moodle deadline import.

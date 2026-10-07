@@ -1,6 +1,6 @@
 # W.A.R.D. — Phase 1 Plan (Core)
 
-Status: **draft, waiting for approval** · 2026-10-06
+Status: **approved and built** (2026-10-07). See the README for setup and for the changes made while building.
 
 ---
 
