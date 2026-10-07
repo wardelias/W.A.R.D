@@ -1,0 +1,1 @@
+-- Local development seed. Test users are created by the tests themselves.
