@@ -8,7 +8,6 @@ import { z } from "zod";
  * - Length limits count code points, matching Postgres char_length().
  */
 
-// eslint-disable-next-line no-control-regex
 const C0_EXCEPT_NL_TAB = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
 
 export function charLength(s: string): number {
@@ -26,12 +25,12 @@ export function normalizeSingleLine(s: string): string {
 }
 
 /** First Strong Isolate … Pop Directional Isolate. */
-const FSI = "⁨";
-const PDI = "⁩";
+const FSI = String.fromCodePoint(0x2068);
+const PDI = String.fromCodePoint(0x2069);
 
 /**
  * Wraps user text so it keeps its own direction inside a fixed-direction
- * string, e.g. a Google Calendar title "Focus · ⁨סיכום הרצאה 4⁩".
+ * string, e.g. a Google Calendar title "Focus · <FSI>סיכום הרצאה 4<PDI>".
  */
 export function isolate(s: string): string {
   return `${FSI}${s}${PDI}`;
@@ -39,7 +38,7 @@ export function isolate(s: string): string {
 
 /** Removes isolates added by `isolate` (when reading titles back from Google). */
 export function stripIsolates(s: string): string {
-  return s.replace(/[⁦-⁩]/g, "");
+  return s.replace(/[\u2066-\u2069]/g, "");
 }
 
 /** zod: a required single-line text field with a code-point length limit. */

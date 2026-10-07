@@ -27,7 +27,7 @@ describe("normalization", () => {
   });
 
   it("keeps bidi marks", () => {
-    const withRlm = "מחיר‏ 20$";
+    const withRlm = "מחיר\u200F 20$";
     expect(normalizeSingleLine(withRlm)).toBe(withRlm);
   });
 
@@ -40,7 +40,7 @@ describe("normalization", () => {
 describe("isolate", () => {
   it("wraps text in FSI/PDI and can strip them again", () => {
     const wrapped = `Focus · ${isolate("סיכום הרצאה 4")}`;
-    expect(wrapped).toBe("Focus · ⁨סיכום הרצאה 4⁩");
+    expect(wrapped).toBe("Focus · \u2068סיכום הרצאה 4\u2069");
     expect(stripIsolates(wrapped)).toBe("Focus · סיכום הרצאה 4");
   });
 });
